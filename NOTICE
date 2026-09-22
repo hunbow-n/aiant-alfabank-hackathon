@@ -1,0 +1,11 @@
+pd-security
+Copyright (c) 2026 ALFAGEN hackathon team
+
+This project is a clean-room implementation of the personal-data protection
+service described in PLAN_FINAL_MERGED.md. It borrows specific engineering
+solutions from the reference project AIAlfa-master (see docs/DECISIONS.md) but
+does not copy its source wholesale.
+
+The built-in Russian name dictionary (NameDictionary) is a small hand-curated
+list of common first names, patronymics and surname suffixes assembled for this
+project. It is not derived from any proprietary dataset.

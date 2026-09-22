@@ -1,0 +1,32 @@
+# Example consumer-system policy configuration.
+# Copy to config/systems.yaml and mount it at runtime. Real API keys are never
+# stored here; only a reference to an environment variable holding the key hash.
+
+pd:
+  policy:
+    version: 1
+
+    benchmark:
+      enabled: true
+      namespace: benchmark
+      detect_types: [ALL]
+      mask_types: [ALL]
+      demask: true
+      ambiguity_mode: balanced
+      strategy: star
+      active_ttl: 15m
+      tombstone_ttl: 5m
+
+    systems:
+      crm-bot:
+        enabled: true
+        api_key_hash_ref: CRM_API_KEY_HASH
+        detect_types: [PERSON, PHONE, CARD, PASSPORT, ADDRESS, EMAIL, INN, PIN, CVV]
+        mask_types: [PERSON, PHONE, CARD, PASSPORT, ADDRESS, EMAIL, INN, PIN, CVV]
+        demask: true
+        ambiguity_mode: contextual
+        strategy: token
+        combo_rules:
+          - target_types: [PIN, CVV]
+            require_types: [CARD]
+            scope: field_group

@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: pd-security
+  config:
+    import: optional:file:./config/systems.yaml
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+pd:
+  policy:
+    version: 1
+    benchmark:
+      enabled: true
+      namespace: benchmark
+      detect_types: [ALL]
+      mask_types: [ALL]
+      demask: true
+      ambiguity_mode: balanced
+      strategy: star
+      active_ttl: 15m
+      tombstone_ttl: 5m
+    systems: {}

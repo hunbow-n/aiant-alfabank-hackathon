@@ -1,0 +1,14 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.log
+*.zip
+.DS_Store
+.idea/
+*.iml
+node_modules/
+.venv/
+coverage/
+out/
+bin/
+build/
+.gradle/
