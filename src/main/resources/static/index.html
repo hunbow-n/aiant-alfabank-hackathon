@@ -221,6 +221,13 @@ fetch('demo/options').then(r => r.json()).then(o => {
   }
 }).catch(() => {});
 
+let stageTimers = [];
+
+function clearStageTimers() {
+  stageTimers.forEach(clearTimeout);
+  stageTimers = [];
+}
+
 function stages(active) {
   document.querySelectorAll('#flow .node').forEach(n => {
     n.classList.remove('active');
@@ -264,8 +271,9 @@ async function run() {
   btn.innerHTML = '<span class="spinner"></span>Обрабатываем';
   $('panels').innerHTML = '<div class="placeholder">Идёт обработка…</div>';
 
+  clearStageTimers();
   const seq = ['input', 'detect', 'mask', 'llm'];
-  seq.forEach((s, i) => setTimeout(() => stages(s), i * 220));
+  stageTimers = seq.map((s, i) => setTimeout(() => stages(s), i * 220));
 
   try {
     const res = await fetch('demo/run', {
@@ -283,6 +291,7 @@ async function run() {
       throw new Error(err.message || ('Ошибка ' + res.status));
     }
     const d = await res.json();
+    clearStageTimers();
     stages('all');
 
     const tags = Object.entries(d.detected || {})
@@ -317,6 +326,7 @@ async function run() {
     if (d.note) html += '<div class="note">' + esc(d.note) + '</div>';
     $('panels').innerHTML = html;
   } catch (e) {
+    clearStageTimers();
     stages(null);
     $('panels').innerHTML = '<div class="note err">' + esc(e.message) + '</div>';
   } finally {

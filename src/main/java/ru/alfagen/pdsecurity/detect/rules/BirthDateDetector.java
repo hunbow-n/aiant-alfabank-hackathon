@@ -28,13 +28,16 @@ public final class BirthDateDetector implements Detector {
         return EntityType.BIRTH_DATE;
     }
 
+    /** Значение должно стоять рядом с меткой: дальше по тексту это уже другая дата. */
+    private static final int MAX_LABEL_DISTANCE = 40;
+
     @Override
     public List<Candidate> detect(SourceText source, DetectionContext context) {
         List<Candidate> out = new ArrayList<>();
         Matcher m = LABEL.matcher(source.value());
         while (m.find()) {
             DateParser.ParsedDate d = dateParser.find(source.value(), m.end());
-            if (d != null && d.plausible()) {
+            if (d != null && d.plausible() && d.start() - m.end() <= MAX_LABEL_DISTANCE) {
                 out.add(new Candidate("bd-" + m.start(), EntityType.BIRTH_DATE,
                         List.of(new SourceRange(d.start(), d.end())), 0.9, 105, "birth-date-label", null));
             }

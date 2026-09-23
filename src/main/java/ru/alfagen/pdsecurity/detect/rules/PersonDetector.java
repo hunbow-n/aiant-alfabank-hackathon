@@ -17,7 +17,8 @@ import java.util.List;
  * "Имя Отчество", "Имя Фамилия", and field-labelled "Фамилия:/Имя:/Отчество:".
  * A name is a run of 2-3 consecutive capitalized tokens where at least one is a
  * known first name or patronymic, or the run matches surname+name+patronymic.
- * Public roles ("поэт Александр Пушкин") are not masked in balanced mode.
+ * Public roles ("поэт Александр Пушкин") are never masked: a public mention
+ * is not personal data regardless of the ambiguity mode.
  */
 public final class PersonDetector implements Detector {
 
@@ -87,45 +88,45 @@ public final class PersonDetector implements Detector {
             }
         }
         if (NameDictionary.isFirstName(norm)) {
-            Candidate c = tryFromFirstName(tokens, i, context);
+            Candidate c = tryFromFirstName(tokens, i);
             if (c != null) {
                 return c;
             }
         }
         if (NameDictionary.looksLikeSurname(norm)) {
-            return tryFromSurname(tokens, i, context);
+            return tryFromSurname(tokens, i);
         }
         return null;
     }
 
-    private Candidate tryFromFirstName(List<SearchToken> tokens, int i, DetectionContext context) {
+    private Candidate tryFromFirstName(List<SearchToken> tokens, int i) {
         int n = tokens.size();
         // first + patronymic + surname
         if (i + 2 < n && NameDictionary.looksLikePatronymic(tokens.get(i + 1).normalizedValue())
                 && NameDictionary.looksLikeSurname(tokens.get(i + 2).normalizedValue())) {
-            return build(tokens, i, i + 3, context);
+            return build(tokens, i, i + 3);
         }
         // first + surname
         if (i + 1 < n && NameDictionary.looksLikeSurname(tokens.get(i + 1).normalizedValue())) {
-            return build(tokens, i, i + 2, context);
+            return build(tokens, i, i + 2);
         }
         // first + patronymic (no surname)
         if (i + 1 < n && NameDictionary.looksLikePatronymic(tokens.get(i + 1).normalizedValue())) {
-            return build(tokens, i, i + 2, context);
+            return build(tokens, i, i + 2);
         }
         return null;
     }
 
-    private Candidate tryFromSurname(List<SearchToken> tokens, int i, DetectionContext context) {
+    private Candidate tryFromSurname(List<SearchToken> tokens, int i) {
         int n = tokens.size();
         // surname + first + patronymic
         if (i + 2 < n && NameDictionary.isFirstName(tokens.get(i + 1).normalizedValue())
                 && NameDictionary.looksLikePatronymic(tokens.get(i + 2).normalizedValue())) {
-            return build(tokens, i, i + 3, context);
+            return build(tokens, i, i + 3);
         }
         // surname + first
         if (i + 1 < n && NameDictionary.isFirstName(tokens.get(i + 1).normalizedValue())) {
-            return build(tokens, i, i + 2, context);
+            return build(tokens, i, i + 2);
         }
         return null;
     }
@@ -137,14 +138,14 @@ public final class PersonDetector implements Detector {
             String value = tokens.get(i + 1).normalizedValue();
             if (NameDictionary.looksLikeSurname(value) || NameDictionary.isFirstName(value)
                     || NameDictionary.looksLikePatronymic(value)) {
-                return build(tokens, i + 1, i + 2, null);
+                return build(tokens, i + 1, i + 2);
             }
         }
         return null;
     }
 
-    private Candidate build(List<SearchToken> tokens, int start, int end, DetectionContext context) {
-        if (context != null && hasPublicLabelBefore(tokens, start) && "balanced".equals(context.ambiguityMode())) {
+    private Candidate build(List<SearchToken> tokens, int start, int end) {
+        if (hasPublicLabelBefore(tokens, start)) {
             return null;
         }
         SourceRange range = new SourceRange(

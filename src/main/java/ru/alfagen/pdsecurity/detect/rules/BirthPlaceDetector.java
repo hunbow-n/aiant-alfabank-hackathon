@@ -1,5 +1,6 @@
 package ru.alfagen.pdsecurity.detect.rules;
 
+import ru.alfagen.pdsecurity.classify.PublicMention;
 import ru.alfagen.pdsecurity.detect.Candidate;
 import ru.alfagen.pdsecurity.detect.DetectionContext;
 import ru.alfagen.pdsecurity.detect.Detector;
@@ -22,7 +23,7 @@ public final class BirthPlaceDetector implements Detector {
             "(?iu)(место\\s+рождения|родился\\s+в|родилась\\s+в)\\s*[:\\s-]*");
 
     private static final Pattern BOUNDARY = Pattern.compile(
-            "(?iu)(,|\\n|;|дата|паспорт|гражданство|адрес|телефон|email|\\b\\d{2}\\.\\d{2}\\.\\d{4})");
+            "(?iu)(,|;|\\n|дата|паспорт|гражданство|адрес|телефон|email)");
 
     @Override
     public EntityType type() {
@@ -40,7 +41,13 @@ public final class BirthPlaceDetector implements Detector {
             if (b.find(start)) {
                 end = b.start();
             }
-            if (end > start) {
+            // Хвостовые пробелы и точка предложения в значение не входят,
+            // но точка сокращения внутри («г. Тула») сохраняется.
+            while (end > start && (Character.isWhitespace(source.charAt(end - 1))
+                    || source.charAt(end - 1) == '.')) {
+                end--;
+            }
+            if (end > start && !PublicMention.precedes(source.value(), m.start())) {
                 out.add(new Candidate("bp-" + m.start(), EntityType.BIRTH_PLACE,
                         List.of(new SourceRange(start, end)), 0.85, 100, "birth-place-label", null));
             }
