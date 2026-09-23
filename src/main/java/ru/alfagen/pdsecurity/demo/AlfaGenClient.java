@@ -28,6 +28,8 @@ import java.util.Map;
  */
 public final class AlfaGenClient implements LlmClient {
 
+    private static final String CONTENT = "content";
+
     private static final String CA_BUNDLE = "/certs/russian-trusted-ca.pem";
 
     private final HttpClient http;
@@ -82,24 +84,31 @@ public final class AlfaGenClient implements LlmClient {
     private String collect(String stream) {
         StringBuilder text = new StringBuilder();
         for (String line : stream.split("\n")) {
-            String trimmed = line.strip();
-            if (!trimmed.startsWith("data:")) {
-                continue;
-            }
-            String payload = trimmed.substring(5).strip();
-            if (payload.isEmpty() || "[DONE]".equals(payload)) {
-                continue;
-            }
-            JsonNode chunk = mapper.readTree(payload);
-            JsonNode delta = chunk.path("choices").path(0).path("delta").path("content");
-            if (!delta.isMissingNode() && !delta.isNull()) {
-                text.append(delta.asText());
+            String payload = dataOf(line);
+            if (payload != null) {
+                JsonNode chunk = mapper.readTree(payload);
+                JsonNode delta = chunk.path("choices").path(0).path("delta").path(CONTENT);
+                if (!delta.isMissingNode() && !delta.isNull()) {
+                    text.append(delta.asText());
+                }
             }
         }
         if (text.isEmpty()) {
             throw new IllegalStateException("AlfaGen returned an empty stream");
         }
         return text.toString();
+    }
+
+    /**
+     * Полезная часть строки SSE или {@code null}, если строка служебная.
+     */
+    private String dataOf(String line) {
+        String trimmed = line.strip();
+        if (!trimmed.startsWith("data:")) {
+            return null;
+        }
+        String payload = trimmed.substring(5).strip();
+        return payload.isEmpty() || "[DONE]".equals(payload) ? null : payload;
     }
 
     public boolean configured() {
@@ -118,8 +127,8 @@ public final class AlfaGenClient implements LlmClient {
                     // Шлюз принимает только потоковый режим: обычный ответ отклоняется с 400.
                     "stream", true,
                     "messages", java.util.List.of(
-                            Map.of("role", "system", "content", instructions),
-                            Map.of("role", "user", "content", prompt))));
+                            Map.of("role", "system", CONTENT, instructions),
+                            Map.of("role", "user", CONTENT, prompt))));
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/chat/completions"))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)

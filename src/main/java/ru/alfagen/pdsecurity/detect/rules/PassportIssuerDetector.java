@@ -21,8 +21,12 @@ public final class PassportIssuerDetector implements Detector {
     private static final Pattern LABEL = Pattern.compile(
             "(?iu)(кем\\s+выдан|орган\\s+выдачи|выдан)\\s*[:\\s-]*");
 
+    private static final String ABBREVIATIONS = "о?уфмс|мвд|овд|офмс|фмс|тп|гу\\s+мвд";
+    private static final String FULL_NAMES =
+            "отдел(?:ом)?\\s+внутренних\\s+дел|управление\\s+внутренних\\s+дел";
+
     private static final Pattern AUTHORITY = Pattern.compile(
-            "(?iu)(о?уфмс|мвд|овд|офмс|фмс|тп|гу\\s+мвд|отдел(?:ом)?\\s+внутренних\\s+дел|управление\\s+внутренних\\s+дел)");
+            "(?iu)(" + ABBREVIATIONS + "|" + FULL_NAMES + ")");
 
     private static final Pattern STOP = Pattern.compile(
             "(?iu)(\\d{2}\\.\\d{2}\\.\\d{4}|код\\s+подразделения|дата\\s+выдачи|\\n)");

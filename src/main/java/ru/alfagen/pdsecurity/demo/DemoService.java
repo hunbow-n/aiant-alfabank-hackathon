@@ -28,8 +28,9 @@ import java.util.Set;
 public final class DemoService {
 
     private static final String DEFAULT_SYSTEM = "chat-assistant";
+    private static final String REAL_MODEL = "alfagen";
 
-    private static final String TOKEN_INSTRUCTIONS = """
+    private static final String PLACEHOLDER_INSTRUCTIONS = """
             Ты помощник банковского оператора. В тексте встречаются плейсхолдеры
             в двойных фигурных скобках — это скрытые персональные данные.
             Копируй их в ответ дословно, не расшифровывай и не изменяй.
@@ -77,11 +78,11 @@ public final class DemoService {
 
         long t2 = System.nanoTime();
         String note = null;
-        String llmMode = "alfagen".equals(request.llmMode()) ? "alfagen" : "mock";
+        String llmMode = REAL_MODEL.equals(request.llmMode()) ? REAL_MODEL : "mock";
         String answer;
         try {
-            String instructions = "token".equals(strategyName) ? TOKEN_INSTRUCTIONS : PLAIN_INSTRUCTIONS;
-            answer = ("alfagen".equals(llmMode) ? alfaGen : mock).complete(masked, instructions);
+            String instructions = "token".equals(strategyName) ? PLACEHOLDER_INSTRUCTIONS : PLAIN_INSTRUCTIONS;
+            answer = (REAL_MODEL.equals(llmMode) ? alfaGen : mock).complete(masked, instructions);
         } catch (RuntimeException e) {
             answer = mock.complete(masked, PLAIN_INSTRUCTIONS);
             llmMode = "mock";

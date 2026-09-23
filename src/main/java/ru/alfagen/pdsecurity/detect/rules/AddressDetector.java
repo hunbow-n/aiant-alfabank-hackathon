@@ -57,9 +57,11 @@ public final class AddressDetector implements Detector {
                     + "|" + INDEX
                     + "|" + TOPONYM + ")");
 
+    private static final String ANY_LABEL =
+            INDEX_LABEL + "|" + CITY_LABEL + "|" + STREET_LABEL + "|" + HOUSE_LABEL + "|" + UNIT_LABEL;
+
     private static final Pattern COMPONENT_LABEL = Pattern.compile(
-            "(?U)(?:" + INDEX_LABEL + "|" + CITY_LABEL + "|" + STREET_LABEL + "|" + HOUSE_LABEL + "|" + UNIT_LABEL + ")"
-                    + SEPARATOR + "(" + TOPONYM + "|" + HOUSE_NUM + ")");
+            "(?U)(?:" + ANY_LABEL + ")" + SEPARATOR + "(" + TOPONYM + "|" + HOUSE_NUM + ")");
 
     private static final Pattern PUBLIC_CONTEXT = Pattern.compile(
             "(?iuU)(отделение\\s+банка|офис\\s+банка|банк\\s+по\\s+адресу|адрес\\s+отделения|адрес\\s+банка)");
@@ -103,17 +105,16 @@ public final class AddressDetector implements Detector {
         String text = source.value();
         int pos = from;
         int lastComponentEnd = from;
-        for (int components = 0; components < MAX_COMPONENTS; components++) {
+        boolean more = true;
+        for (int components = 0; components < MAX_COMPONENTS && more; components++) {
             Matcher comp = COMPONENT.matcher(text);
-            if (!comp.find(pos) || comp.start() != pos) {
-                break;
+            more = comp.find(pos) && comp.start() == pos;
+            if (more) {
+                lastComponentEnd = comp.end();
+                int next = afterSeparators(text, comp.end());
+                more = next >= 0;
+                pos = more ? next : pos;
             }
-            lastComponentEnd = comp.end();
-            int next = afterSeparators(text, comp.end());
-            if (next < 0) {
-                break;
-            }
-            pos = next;
         }
         // Возвращаем конец последнего компонента: разделители за ним в адрес не входят.
         return lastComponentEnd;

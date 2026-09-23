@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class EmailDetector extends AbstractRegexDetector {
 
     private static final Pattern EMAIL = Pattern.compile(
-            "(?<![\\w.+-])([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,})(?![\\w+-])");
+            "(?<![\\w.+-])([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+){0,5}\\.[A-Za-z]{2,})(?![\\w+-])");
 
     public EmailDetector() {
         super(EntityType.EMAIL, EMAIL);
