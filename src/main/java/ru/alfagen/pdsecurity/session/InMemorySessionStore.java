@@ -103,20 +103,13 @@ public final class InMemorySessionStore implements SessionStore {
     public void sweep() {
         Instant now = clock.now();
         active.forEach((key, s) -> {
-            if (isExpired(s.createdAt(), activeTtl)) {
-                if (active.remove(key, s)) {
-                    tombstones.put(key, new Tombstone(
-                            fingerprint.of(s.masked()),
-                            false,
-                            now));
-                }
+            if (isExpired(s.createdAt(), activeTtl) && active.remove(key, s)) {
+                tombstones.put(key, new Tombstone(fingerprint.of(s.masked()), false, now));
             }
         });
         tombstones.forEach((key, t) -> {
-            if (isExpired(t.createdAt(), tombstoneTtl)) {
-                if (tombstones.remove(key, t)) {
-                    live.decrementAndGet();
-                }
+            if (isExpired(t.createdAt(), tombstoneTtl) && tombstones.remove(key, t)) {
+                live.decrementAndGet();
             }
         });
     }

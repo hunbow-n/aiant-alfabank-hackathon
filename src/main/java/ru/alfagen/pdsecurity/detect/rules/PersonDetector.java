@@ -44,96 +44,106 @@ public final class PersonDetector implements Detector {
     public List<Candidate> detect(SourceText source, DetectionContext context) {
         List<Candidate> out = new ArrayList<>();
         List<SearchToken> tokens = TOKENIZER.tokenize(source.value());
-
-        for (int i = 0; i < tokens.size(); i++) {
-            SearchToken t = tokens.get(i);
-            String norm = t.normalizedValue();
-
-            // Field-labelled name: "Фамилия: Сидоров, Имя: Дмитрий, Отчество: Олегович"
-            if (FIELD_LABELS.contains(norm) && isFieldLabel(source, t)) {
-                Candidate c = tryFieldName(source, tokens, i);
-                if (c != null) {
-                    out.add(c);
-                    i = advancePast(tokens, c);
-                    continue;
-                }
-            }
-
-            // Full name starting from a first name: "Иван Иванович Иванов", "Иван Петров"
-            if (NameDictionary.isFirstName(norm)) {
-                Candidate c = tryFromFirstName(source, tokens, i, context);
-                if (c != null) {
-                    out.add(c);
-                    i = advancePast(tokens, c);
-                    continue;
-                }
-            }
-
-            // Full name starting from a surname: "Иванов Иван Иванович", "Петров Иван"
-            if (NameDictionary.looksLikeSurname(norm)) {
-                Candidate c = tryFromSurname(source, tokens, i, context);
-                if (c != null) {
-                    out.add(c);
-                    i = advancePast(tokens, c);
-                    continue;
-                }
-            }
-
-            // Single name with personal label.
-            if (NameDictionary.isFirstName(norm) && hasPersonalLabelBefore(tokens, i)) {
-                out.add(new Candidate("p-" + t.originalRange().startInclusive(), EntityType.PERSON,
-                        List.of(t.originalRange()), 0.8, 90, "person-label", null));
-            }
+        int i = 0;
+        while (i < tokens.size()) {
+            i = scanAt(source, tokens, i, context, out);
         }
         return out;
     }
 
-    private Candidate tryFromFirstName(SourceText source, List<SearchToken> tokens, int i, DetectionContext context) {
+    /**
+     * Tries every name shape at position {@code i} and returns the index to
+     * continue from: past a matched name, or the next token when nothing matched.
+     */
+    private int scanAt(SourceText source, List<SearchToken> tokens, int i,
+                       DetectionContext context, List<Candidate> out) {
+        SearchToken t = tokens.get(i);
+        String norm = t.normalizedValue();
+
+        Candidate matched = matchName(source, tokens, i, context, norm);
+        if (matched != null) {
+            out.add(matched);
+            return advancePast(tokens, matched) + 1;
+        }
+
+        // Single name with personal label: "клиент Иван".
+        if (NameDictionary.isFirstName(norm) && hasPersonalLabelBefore(tokens, i)) {
+            out.add(new Candidate("p-" + t.originalRange().startInclusive(), EntityType.PERSON,
+                    List.of(t.originalRange()), 0.8, 90, "person-label", null));
+        }
+        return i + 1;
+    }
+
+    /**
+     * Name shapes in priority order: field-labelled value, sequence starting
+     * from a first name, sequence starting from a surname.
+     */
+    private Candidate matchName(SourceText source, List<SearchToken> tokens, int i,
+                                DetectionContext context, String norm) {
+        if (FIELD_LABELS.contains(norm) && isFieldLabel(source, tokens.get(i))) {
+            Candidate c = tryFieldName(tokens, i);
+            if (c != null) {
+                return c;
+            }
+        }
+        if (NameDictionary.isFirstName(norm)) {
+            Candidate c = tryFromFirstName(tokens, i, context);
+            if (c != null) {
+                return c;
+            }
+        }
+        if (NameDictionary.looksLikeSurname(norm)) {
+            return tryFromSurname(tokens, i, context);
+        }
+        return null;
+    }
+
+    private Candidate tryFromFirstName(List<SearchToken> tokens, int i, DetectionContext context) {
         int n = tokens.size();
         // first + patronymic + surname
         if (i + 2 < n && NameDictionary.looksLikePatronymic(tokens.get(i + 1).normalizedValue())
                 && NameDictionary.looksLikeSurname(tokens.get(i + 2).normalizedValue())) {
-            return build(source, tokens, i, i + 3, context);
+            return build(tokens, i, i + 3, context);
         }
         // first + surname
         if (i + 1 < n && NameDictionary.looksLikeSurname(tokens.get(i + 1).normalizedValue())) {
-            return build(source, tokens, i, i + 2, context);
+            return build(tokens, i, i + 2, context);
         }
         // first + patronymic (no surname)
         if (i + 1 < n && NameDictionary.looksLikePatronymic(tokens.get(i + 1).normalizedValue())) {
-            return build(source, tokens, i, i + 2, context);
+            return build(tokens, i, i + 2, context);
         }
         return null;
     }
 
-    private Candidate tryFromSurname(SourceText source, List<SearchToken> tokens, int i, DetectionContext context) {
+    private Candidate tryFromSurname(List<SearchToken> tokens, int i, DetectionContext context) {
         int n = tokens.size();
         // surname + first + patronymic
         if (i + 2 < n && NameDictionary.isFirstName(tokens.get(i + 1).normalizedValue())
                 && NameDictionary.looksLikePatronymic(tokens.get(i + 2).normalizedValue())) {
-            return build(source, tokens, i, i + 3, context);
+            return build(tokens, i, i + 3, context);
         }
         // surname + first
         if (i + 1 < n && NameDictionary.isFirstName(tokens.get(i + 1).normalizedValue())) {
-            return build(source, tokens, i, i + 2, context);
+            return build(tokens, i, i + 2, context);
         }
         return null;
     }
 
-    private Candidate tryFieldName(SourceText source, List<SearchToken> tokens, int i) {
+    private Candidate tryFieldName(List<SearchToken> tokens, int i) {
         int n = tokens.size();
         // "Фамилия: Сидоров" -> value is the next token
         if (i + 1 < n) {
             String value = tokens.get(i + 1).normalizedValue();
             if (NameDictionary.looksLikeSurname(value) || NameDictionary.isFirstName(value)
                     || NameDictionary.looksLikePatronymic(value)) {
-                return build(source, tokens, i + 1, i + 2, null);
+                return build(tokens, i + 1, i + 2, null);
             }
         }
         return null;
     }
 
-    private Candidate build(SourceText source, List<SearchToken> tokens, int start, int end, DetectionContext context) {
+    private Candidate build(List<SearchToken> tokens, int start, int end, DetectionContext context) {
         if (context != null && hasPublicLabelBefore(tokens, start) && "balanced".equals(context.ambiguityMode())) {
             return null;
         }

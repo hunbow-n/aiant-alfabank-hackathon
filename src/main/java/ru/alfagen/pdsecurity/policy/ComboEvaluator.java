@@ -26,11 +26,9 @@ public final class ComboEvaluator {
         for (Candidate c : candidates) {
             boolean allowed = true;
             for (ComboRule rule : policy.comboRules()) {
-                if (rule.targetTypes().contains(c.type())) {
-                    if (!present.containsAll(rule.requireTypes())) {
-                        allowed = false;
-                        break;
-                    }
+                if (rule.targetTypes().contains(c.type()) && !present.containsAll(rule.requireTypes())) {
+                    allowed = false;
+                    break;
                 }
             }
             if (allowed) {

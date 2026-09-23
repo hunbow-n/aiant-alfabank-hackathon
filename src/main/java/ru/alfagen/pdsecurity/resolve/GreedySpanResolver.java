@@ -27,7 +27,7 @@ public final class GreedySpanResolver implements SpanResolver {
         sorted.sort(Comparator
                 .comparingInt(Candidate::priority).reversed()
                 .thenComparingDouble(Candidate::confidence).reversed()
-                .thenComparingInt((Candidate c) -> totalLength(c)).reversed()
+                .thenComparingInt(this::totalLength).reversed()
                 .thenComparingInt(c -> c.firstRange().startInclusive())
                 .thenComparingInt(c -> c.firstRange().endExclusive())
                 .thenComparing(c -> c.type().name()));

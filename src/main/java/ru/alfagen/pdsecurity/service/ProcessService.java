@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import ru.alfagen.pdsecurity.detect.Candidate;
 import ru.alfagen.pdsecurity.detect.DetectionContext;
 import ru.alfagen.pdsecurity.detect.DetectionEngine;
-import ru.alfagen.pdsecurity.detect.EntityType;
 import ru.alfagen.pdsecurity.mask.Masker;
 import ru.alfagen.pdsecurity.mask.MaskStrategy;
 import ru.alfagen.pdsecurity.mask.StarMask;
@@ -16,7 +15,6 @@ import ru.alfagen.pdsecurity.observability.TokenCounter;
 import ru.alfagen.pdsecurity.policy.ComboEvaluator;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 import ru.alfagen.pdsecurity.policy.PolicySnapshot;
-import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
 import ru.alfagen.pdsecurity.resolve.SpanResolver;
 import ru.alfagen.pdsecurity.session.Fingerprint;
 import ru.alfagen.pdsecurity.session.SessionCipher;
@@ -42,6 +40,8 @@ import java.util.concurrent.Executors;
 public final class ProcessService {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessService.class);
+    private static final String BENCHMARK = "benchmark";
+    private static final String OPERATION = "process";
 
     private final SessionStore store;
     private final SessionCipher cipher;
@@ -54,16 +54,15 @@ public final class ProcessService {
     private final TokenCounter tokenCounter;
     private final ExecutorService tokenExecutor;
 
-    public ProcessService(SessionStore store, SessionCipher cipher, Fingerprint fingerprint,
-                          DetectionEngine engine, SpanResolver resolver, ComboEvaluator comboEvaluator,
-                          PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter tokenCounter) {
-        this.store = store;
-        this.cipher = cipher;
-        this.fingerprint = fingerprint;
-        this.engine = engine;
-        this.resolver = resolver;
-        this.comboEvaluator = comboEvaluator;
-        this.policies = policies;
+    public ProcessService(SessionSupport session, DetectionPipeline pipeline,
+                          ProcessingMetrics metrics, TokenCounter tokenCounter) {
+        this.store = session.store();
+        this.cipher = session.cipher();
+        this.fingerprint = session.fingerprint();
+        this.engine = pipeline.engine();
+        this.resolver = pipeline.resolver();
+        this.comboEvaluator = pipeline.comboEvaluator();
+        this.policies = pipeline.policies();
         this.metrics = metrics;
         this.tokenCounter = tokenCounter;
         this.tokenExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -81,20 +80,20 @@ public final class ProcessService {
 
         StoredSession existing = store.get(key).orElse(null);
         if (existing != null) {
-            ProcessResult r = classify(existing, payload, fp, key, policy);
+            ProcessResult r = classify(existing, payload, fp, key);
             metrics.recordLatency(System.nanoTime() - start);
             return r;
         }
 
         Tombstone tomb = store.getTombstone(key).orElse(null);
         if (tomb != null && Fingerprint.constantTimeEquals(tomb.maskFingerprint(), fingerprint.of(payload))) {
-            metrics.event("benchmark", "process", "expired");
+            metrics.event(BENCHMARK, OPERATION, "expired");
             metrics.recordLatency(System.nanoTime() - start);
             throw new ExpiredException();
         }
 
         if (!store.tryAcquire()) {
-            metrics.event("benchmark", "process", "rejected");
+            metrics.event(BENCHMARK, OPERATION, "rejected");
             metrics.recordLatency(System.nanoTime() - start);
             throw new CapacityException();
         }
@@ -106,9 +105,11 @@ public final class ProcessService {
             MaskStrategy strategy = strategyFor(policy.strategy());
             String masked = new Masker(strategy).render(payload, resolved);
 
-            log.info("op=MASK payloadIdHash={} len={} types={} latencyMs={}",
-                    SafeLog.hash(payloadId), payload.length(), typeCounts(candidates),
-                    (System.nanoTime() - start) / 1_000_000);
+            if (log.isInfoEnabled()) {
+                log.info("op=MASK payloadIdHash={} len={} types={} latencyMs={}",
+                        SafeLog.hash(payloadId), payload.length(), typeCounts(candidates),
+                        (System.nanoTime() - start) / 1_000_000);
+            }
 
             StoredSession entry = new StoredSession(
                     policy.version(),
@@ -123,11 +124,11 @@ public final class ProcessService {
             StoredSession winner = store.putIfAbsent(key, entry);
             if (winner != entry) {
                 store.release();
-                ProcessResult r = classify(winner, payload, fp, key, policy);
+                ProcessResult r = classify(winner, payload, fp, key);
                 metrics.recordLatency(System.nanoTime() - start);
                 return r;
             }
-            metrics.event("benchmark", "process", "masked");
+            metrics.event(BENCHMARK, OPERATION, "masked");
             metrics.recordLatency(System.nanoTime() - start);
             countTokensAsync(payload);
             return new ProcessResult(masked, Operation.MASK);
@@ -138,21 +139,21 @@ public final class ProcessService {
         }
     }
 
-    private ProcessResult classify(StoredSession entry, String payload, byte[] fp, String key, PolicySnapshot policy) {
+    private ProcessResult classify(StoredSession entry, String payload, byte[] fp, String key) {
         if (Fingerprint.constantTimeEquals(entry.fingerprint(), fp)) {
-            metrics.event("benchmark", "process", "mask_retry");
+            metrics.event(BENCHMARK, OPERATION, "mask_retry");
             return new ProcessResult(entry.masked(), Operation.MASK_RETRY);
         }
         if (entry.masked().equals(payload)) {
             if (!entry.restorable()) {
-                metrics.event("benchmark", "process", "forbidden");
+                metrics.event(BENCHMARK, OPERATION, "forbidden");
                 throw new ForbiddenException();
             }
             store.markCompleted(key);
-            metrics.event("benchmark", "process", "restored");
+            metrics.event(BENCHMARK, OPERATION, "restored");
             return new ProcessResult(cipher.decrypt(entry.encryptedOriginal()), Operation.DEMASK);
         }
-        metrics.event("benchmark", "process", "conflict");
+        metrics.event(BENCHMARK, OPERATION, "conflict");
         throw new ConflictException();
     }
 

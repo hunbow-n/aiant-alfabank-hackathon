@@ -29,7 +29,6 @@ public final class PassportDetector extends AbstractRegexDetector {
     @Override
     protected Candidate build(SourceText source, Matcher m) {
         String series = m.group(1);
-        String number = m.group(2);
         int seriesStart = m.start(1);
         int numberStart = m.start(2);
         int numberEnd = m.end(2);

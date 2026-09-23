@@ -21,14 +21,14 @@ import ru.alfagen.pdsecurity.detect.rules.PassportIssuerDetector;
 import ru.alfagen.pdsecurity.detect.rules.PersonDetector;
 import ru.alfagen.pdsecurity.detect.rules.PhoneDetector;
 import ru.alfagen.pdsecurity.detect.rules.PinDetector;
-import ru.alfagen.pdsecurity.mask.Masker;
-import ru.alfagen.pdsecurity.mask.StarMask;
 import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
 import ru.alfagen.pdsecurity.policy.ComboEvaluator;
 import ru.alfagen.pdsecurity.policy.PolicyProperties;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
+import ru.alfagen.pdsecurity.service.DetectionPipeline;
 import ru.alfagen.pdsecurity.service.ProcessService;
+import ru.alfagen.pdsecurity.service.SessionSupport;
 import ru.alfagen.pdsecurity.session.Fingerprint;
 import ru.alfagen.pdsecurity.session.InMemorySessionStore;
 import ru.alfagen.pdsecurity.session.SessionCipher;
@@ -63,8 +63,8 @@ class MaskingCorrectnessTest {
         ProcessingMetrics metrics = new ProcessingMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         DetectionEngine engine = new DefaultDetectionEngine(detectors, metrics);
         PolicyRegistry policies = new PolicyRegistry(new PolicyProperties());
-        return new ProcessService(store, cipher, fp, engine, new GreedySpanResolver(),
-                new ComboEvaluator(), policies, metrics, new ru.alfagen.pdsecurity.observability.TokenCounter());
+        return new ProcessService(new SessionSupport(store, cipher, fp),
+                new DetectionPipeline(engine, new GreedySpanResolver(), new ComboEvaluator(), policies), metrics, new ru.alfagen.pdsecurity.observability.TokenCounter());
     }
 
     private String mask(String text) {

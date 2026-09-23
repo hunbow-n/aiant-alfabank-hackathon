@@ -22,39 +22,44 @@ import java.util.regex.Pattern;
  */
 public final class AddressDetector implements Detector {
 
-    private static final Pattern LABEL = Pattern.compile(
-            "(?iuU)(адрес\\s+проживания|адрес\\s+регистрации|проживает\\s+по\\s+адресу|зарегистрирован\\s+по\\s+адресу"
-                    + "|адрес|проживает\\s+по|зарегистрирован\\s+по)\\b"
-                    + "\\s*[:\\s\\-—–]*");
-
     // Toponym must start with an uppercase letter so lowercase words like
     // "адресу" are not consumed as address components. The (?U) flag makes \b
     // Unicode-aware; labels are made case-insensitive via inline (?i:...).
-    private static final String TOPONYM = "[А-ЯЁ][а-яё]+(?:-[А-Яа-яё]+)*";
+    private static final String TOPONYM = "[А-ЯЁ][а-яё]+(?:-[А-Яа-яё]+){0,3}";
+
     private static final String HOUSE_NUM = "\\d+[А-Яа-яё/]*";
 
+    private static final String CITY_LABEL = "(?i:г\\.|город)";
+
+    private static final String STREET_LABEL = "(?i:ул\\.|улица|проспект|пр-т|пер\\.|ш\\.)";
+
+    private static final String HOUSE_LABEL = "(?i:д\\.|дом)";
+
+    private static final String UNIT_LABEL = "(?i:корп\\.|стр\\.|кв\\.|квартира)";
+
+    private static final String INDEX = "\\d{6}";
+    private static final String INDEX_LABEL = "(?i:индекс)\\b";
+    private static final int MAX_COMPONENTS = 8;
+
+    private static final String SEPARATOR = "[:\\s\\-—–]*";
+
+    private static final String ADDRESS_WORD = "адрес(?:\\s+проживания|\\s+регистрации)?";
+    private static final String LIVES_AT = "(?:проживает|зарегистрирован)\\s+по(?:\\s+адресу)?";
+
+    private static final Pattern LABEL = Pattern.compile(
+            "(?iuU)(?:" + ADDRESS_WORD + "|" + LIVES_AT + ")\\b" + SEPARATOR);
+
     private static final Pattern COMPONENT = Pattern.compile(
-            "(?U)(?:(?i:г\\.)\\s*" + TOPONYM
-                    + "|(?i:город)\\s*" + TOPONYM
-                    + "|(?i:ул\\.)\\s*" + TOPONYM
-                    + "|(?i:улица)\\s*" + TOPONYM
-                    + "|(?i:проспект)\\s*" + TOPONYM
-                    + "|(?i:пр-т)\\s*" + TOPONYM
-                    + "|(?i:пер\\.)\\s*" + TOPONYM
-                    + "|(?i:ш\\.)\\s*" + TOPONYM
-                    + "|(?i:д\\.)\\s*" + HOUSE_NUM
-                    + "|(?i:дом)\\s*" + HOUSE_NUM
-                    + "|(?i:корп\\.)\\s*\\d+"
-                    + "|(?i:стр\\.)\\s*\\d+"
-                    + "|(?i:кв\\.)\\s*\\d+"
-                    + "|(?i:квартира)\\s*\\d+"
-                    + "|\\d{6}"
+            "(?U)(?:" + CITY_LABEL + "\\s*" + TOPONYM
+                    + "|" + STREET_LABEL + "\\s*" + TOPONYM
+                    + "|" + HOUSE_LABEL + "\\s*" + HOUSE_NUM
+                    + "|" + UNIT_LABEL + "\\s*\\d+"
+                    + "|" + INDEX
                     + "|" + TOPONYM + ")");
 
     private static final Pattern COMPONENT_LABEL = Pattern.compile(
-            "(?U)(?:(?i:индекс|город|улица|дом|корпус|строение|квартира|проспект)\\b"
-                    + "|(?i:ул\\.|кв\\.|г\\.|д\\.|пр-т|пер\\.|ш\\.))"
-                    + "\\s*[:\\s\\-—–]*(" + TOPONYM + "|" + HOUSE_NUM + ")");
+            "(?U)(?:" + INDEX_LABEL + "|" + CITY_LABEL + "|" + STREET_LABEL + "|" + HOUSE_LABEL + "|" + UNIT_LABEL + ")"
+                    + SEPARATOR + "(" + TOPONYM + "|" + HOUSE_NUM + ")");
 
     private static final Pattern PUBLIC_CONTEXT = Pattern.compile(
             "(?iuU)(отделение\\s+банка|офис\\s+банка|банк\\s+по\\s+адресу|адрес\\s+отделения|адрес\\s+банка)");
@@ -97,38 +102,42 @@ public final class AddressDetector implements Detector {
     private int scanAddressEnd(SourceText source, int from) {
         String text = source.value();
         int pos = from;
-        int components = 0;
-        while (components < 8) {
+        for (int components = 0; components < MAX_COMPONENTS; components++) {
             Matcher comp = COMPONENT.matcher(text);
             if (!comp.find(pos) || comp.start() != pos) {
-                break;
+                return pos;
             }
-            pos = comp.end();
-            components++;
-            // Skip separators: commas and spaces.
-            int sep = pos;
-            while (sep < text.length() && (text.charAt(sep) == ',' || text.charAt(sep) == ' ')) {
-                sep++;
+            int next = afterSeparators(text, comp.end());
+            if (next < 0) {
+                return comp.end();
             }
-            // Stop at a period followed by a capital letter (new sentence) or end.
-            if (sep < text.length() && text.charAt(sep) == '.') {
-                int after = sep + 1;
-                while (after < text.length() && text.charAt(after) == ' ') {
-                    after++;
-                }
-                if (after >= text.length() || Character.isUpperCase(text.charAt(after))) {
-                    break;
-                }
-                // Period inside abbreviation (г., ул.) — continue.
-                pos = sep + 1;
-                continue;
-            }
-            if (sep >= text.length() || text.charAt(sep) == '\n') {
-                break;
-            }
-            pos = sep;
+            pos = next;
         }
         return pos;
+    }
+
+    /**
+     * Skips commas and spaces after a component and returns the position of the
+     * next component, or -1 when the address ends here: a sentence boundary
+     * (period followed by a capital letter or end of text) or a line break.
+     */
+    private int afterSeparators(String text, int from) {
+        int sep = from;
+        while (sep < text.length() && (text.charAt(sep) == ',' || text.charAt(sep) == ' ')) {
+            sep++;
+        }
+        if (sep >= text.length() || text.charAt(sep) == '\n') {
+            return -1;
+        }
+        if (text.charAt(sep) != '.') {
+            return sep;
+        }
+        // A period either ends the sentence or belongs to an abbreviation (г., ул.).
+        int after = sep + 1;
+        while (after < text.length() && text.charAt(after) == ' ') {
+            after++;
+        }
+        return after >= text.length() || Character.isUpperCase(text.charAt(after)) ? -1 : sep + 1;
     }
 
     private boolean hasPublicContext(SourceText source, int start, int end) {

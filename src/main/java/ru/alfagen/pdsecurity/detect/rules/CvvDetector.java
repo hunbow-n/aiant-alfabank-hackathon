@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public final class CvvDetector extends AbstractRegexDetector {
 
     private static final Pattern CVV = Pattern.compile(
-            "(?iu)(?:cvv|cvc|код\\s+на\\s+обороте|код\\s+проверки)\\s*[:\\s-]*\\s*(\\d{3,4})");
+            "(?iu)(?:cvv|cvc|код\\s+на\\s+обороте|код\\s+проверки)[:\\s-]*(\\d{3,4})");
 
     public CvvDetector() {
         super(EntityType.CVV, CVV);

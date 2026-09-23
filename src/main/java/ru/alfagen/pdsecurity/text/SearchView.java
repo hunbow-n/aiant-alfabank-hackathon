@@ -1,6 +1,5 @@
 package ru.alfagen.pdsecurity.text;
 
-import java.util.List;
 
 /**
  * A normalized, searchable view of the source text that can map a match back

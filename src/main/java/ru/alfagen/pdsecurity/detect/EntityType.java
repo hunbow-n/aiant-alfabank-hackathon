@@ -1,5 +1,7 @@
 package ru.alfagen.pdsecurity.detect;
 
+import java.util.List;
+
 /**
  * The 17 personal-data entity types recognised by the service, plus a marker
  * for "all types" used in policy configuration.
@@ -23,5 +25,9 @@ public enum EntityType {
     PIN,
     CARDHOLDER;
 
-    public static final EntityType[] ALL = values();
+    private static final List<EntityType> ALL_TYPES = List.of(values());
+
+    public static List<EntityType> all() {
+        return ALL_TYPES;
+    }
 }

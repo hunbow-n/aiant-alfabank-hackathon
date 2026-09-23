@@ -43,16 +43,15 @@ public final class ConsumerService {
     private final TokenCounter tokenCounter;
     private final ExecutorService tokenExecutor;
 
-    public ConsumerService(SessionStore store, SessionCipher cipher, Fingerprint fingerprint,
-                           DetectionEngine engine, SpanResolver resolver, ComboEvaluator comboEvaluator,
-                           PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter tokenCounter) {
-        this.store = store;
-        this.cipher = cipher;
-        this.fingerprint = fingerprint;
-        this.engine = engine;
-        this.resolver = resolver;
-        this.comboEvaluator = comboEvaluator;
-        this.policies = policies;
+    public ConsumerService(SessionSupport session, DetectionPipeline pipeline,
+                           ProcessingMetrics metrics, TokenCounter tokenCounter) {
+        this.store = session.store();
+        this.cipher = session.cipher();
+        this.fingerprint = session.fingerprint();
+        this.engine = pipeline.engine();
+        this.resolver = pipeline.resolver();
+        this.comboEvaluator = pipeline.comboEvaluator();
+        this.policies = pipeline.policies();
         this.metrics = metrics;
         this.tokenCounter = tokenCounter;
         this.tokenExecutor = Executors.newSingleThreadExecutor(r -> {

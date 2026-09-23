@@ -13,7 +13,9 @@ import ru.alfagen.pdsecurity.policy.ComboEvaluator;
 import ru.alfagen.pdsecurity.policy.PolicyProperties;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
+import ru.alfagen.pdsecurity.service.DetectionPipeline;
 import ru.alfagen.pdsecurity.service.ProcessService;
+import ru.alfagen.pdsecurity.service.SessionSupport;
 import ru.alfagen.pdsecurity.session.Fingerprint;
 import ru.alfagen.pdsecurity.session.InMemorySessionStore;
 import ru.alfagen.pdsecurity.session.SessionCipher;
@@ -45,8 +47,9 @@ class ConcurrentSessionTest {
         ProcessingMetrics metrics = new ProcessingMetrics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         DetectionEngine engine = new DefaultDetectionEngine(detectors, metrics);
         PolicyRegistry policies = new PolicyRegistry(new PolicyProperties());
-        ProcessService service = new ProcessService(store, cipher, fp, engine, new GreedySpanResolver(),
-                new ComboEvaluator(), policies, metrics, new TokenCounter());
+        ProcessService service = new ProcessService(new SessionSupport(store, cipher, fp),
+                new DetectionPipeline(engine, new GreedySpanResolver(), new ComboEvaluator(), policies),
+                metrics, new TokenCounter());
 
         String original = "Клиент Иванов Иван, email ivan@example.com";
         int threads = 200;

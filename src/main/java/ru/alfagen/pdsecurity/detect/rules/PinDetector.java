@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 public final class PinDetector extends AbstractRegexDetector {
 
     private static final Pattern PIN = Pattern.compile(
-            "(?iu)(?:пин-код|пин|pin)\\s*[:\\s-]*\\s*(\\d{4,6})");
+            "(?iu)(?:пин-код|пин|pin)[:\\s-]*(\\d{4,6})");
 
     public PinDetector() {
         super(EntityType.PIN, PIN);

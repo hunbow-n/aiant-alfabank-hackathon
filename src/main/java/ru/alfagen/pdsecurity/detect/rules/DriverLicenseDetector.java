@@ -14,9 +14,11 @@ import java.util.regex.Pattern;
  */
 public final class DriverLicenseDetector extends AbstractRegexDetector {
 
+    private static final String LABELS = "(?iu)(?:водительское\\s+удостоверение|удостоверение\\s+водителя|права|ву)";
+    private static final String NUMBER = "\\d{10}|\\d{2}\\s?[А-ЯЁ]{2}\\s?\\d{6}";
+
     private static final Pattern LICENSE = Pattern.compile(
-            "(?iu)(?:водительское\\s+удостоверение|удостоверение\\s+водителя|права|ву)\\s*[:\\s-]*\\s*"
-                    + "([0-9]{10}|[0-9]{2}\\s?[А-ЯЁ]{2}\\s?[0-9]{6})");
+            LABELS + "[:\\s-]*(" + NUMBER + ")");
 
     public DriverLicenseDetector() {
         super(EntityType.DRIVER_LICENSE, LICENSE);

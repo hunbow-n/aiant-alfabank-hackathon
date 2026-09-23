@@ -38,7 +38,9 @@ import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
 import ru.alfagen.pdsecurity.resolve.SpanResolver;
 import ru.alfagen.pdsecurity.security.SystemAuthentication;
 import ru.alfagen.pdsecurity.service.ConsumerService;
+import ru.alfagen.pdsecurity.service.DetectionPipeline;
 import ru.alfagen.pdsecurity.service.ProcessService;
+import ru.alfagen.pdsecurity.service.SessionSupport;
 import ru.alfagen.pdsecurity.session.Fingerprint;
 import ru.alfagen.pdsecurity.session.InMemorySessionStore;
 import ru.alfagen.pdsecurity.session.SessionCipher;
@@ -138,7 +140,8 @@ public class AppConfig {
     public ProcessService processService(SessionStore store, SessionCipher cipher, Fingerprint fingerprint,
                                          DetectionEngine engine, SpanResolver resolver, ComboEvaluator combo,
                                          PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter counter) {
-        return new ProcessService(store, cipher, fingerprint, engine, resolver, combo, policies, metrics, counter);
+        return new ProcessService(new SessionSupport(store, cipher, fingerprint),
+                new DetectionPipeline(engine, resolver, combo, policies), metrics, counter);
     }
 
     @Bean
@@ -155,7 +158,8 @@ public class AppConfig {
     public ConsumerService consumerService(SessionStore store, SessionCipher cipher, Fingerprint fingerprint,
                                            DetectionEngine engine, SpanResolver resolver, ComboEvaluator combo,
                                            PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter counter) {
-        return new ConsumerService(store, cipher, fingerprint, engine, resolver, combo, policies, metrics, counter);
+        return new ConsumerService(new SessionSupport(store, cipher, fingerprint),
+                new DetectionPipeline(engine, resolver, combo, policies), metrics, counter);
     }
 
     @Bean

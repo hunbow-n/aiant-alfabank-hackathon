@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 public final class CardDetector extends AbstractRegexDetector {
 
     private static final Pattern CARD = Pattern.compile(
-            "(?<![\\d])(\\d{4}[ ]?\\d{4}[ ]?\\d{4}[ ]?\\d{4}|\\d{4}[ ]?\\d{4}[ ]?\\d{4}[ ]?\\d{3}|\\d{13,19})(?![\\d])");
+            "(?<!\\d)(\\d{4} ?\\d{4} ?\\d{4} ?\\d{3,4}|\\d{13,19})(?!\\d)");
 
     public CardDetector() {
         super(EntityType.CARD, CARD);

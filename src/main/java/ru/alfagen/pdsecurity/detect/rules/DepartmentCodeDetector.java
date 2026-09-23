@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 public final class DepartmentCodeDetector extends AbstractRegexDetector {
 
     private static final Pattern CODE = Pattern.compile(
-            "(?iu)(?:код\\s+подразделения|код\\s+подразд\\.)\\s*[:\\s-]*\\s*(\\d{3}-\\d{3}|\\d{3}\\s\\d{3})");
+            "(?iu)(?:код\\s+подразделения|код\\s+подразд\\.)[:\\s-]*(\\d{3}-\\d{3}|\\d{3}\\s\\d{3})");
 
     public DepartmentCodeDetector() {
         super(EntityType.DEPARTMENT_CODE, CODE);

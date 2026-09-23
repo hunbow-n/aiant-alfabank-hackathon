@@ -24,15 +24,16 @@ public final class DateWordsDetector implements Detector {
     private static final Pattern LABEL = Pattern.compile(
             "(?iu)(дата\\s+рождения|родился|родилась|дата\\s+выдачи|выдан|выдана)\\s*[:\\s-]*");
 
-    private static final Pattern DATE_WORDS = Pattern.compile(
-            "(?iu)([а-яё]+(?:\\s+[а-яё]+){0,3})\\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)"
-                    + "\\s+([а-яё]+(?:\\s+[а-яё]+){0,4})\\s+года");
-
     private static final Map<String, Integer> MONTHS = Map.ofEntries(
             Map.entry("января", 1), Map.entry("февраля", 2), Map.entry("марта", 3),
             Map.entry("апреля", 4), Map.entry("мая", 5), Map.entry("июня", 6),
             Map.entry("июля", 7), Map.entry("августа", 8), Map.entry("сентября", 9),
             Map.entry("октября", 10), Map.entry("ноября", 11), Map.entry("декабря", 12));
+
+    private static final Pattern DATE_WORDS = Pattern.compile(
+            "(?iu)([а-яё]+(?:\s+[а-яё]+){0,3})\s+(" + String.join("|", MONTHS.keySet()) + ")"
+                    + "\s+([а-яё]+(?:\s+[а-яё]+){0,4})\s+года");
+
 
     @Override
     public EntityType type() {
