@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Модуль безопасности ПД</title>
+<style>
+  :root{
+    --red:#ef3124; --red-dark:#cf2418; --ink:#0a0a0a; --muted:#71757a;
+    --line:#e5e7ea; --surface:#fff; --bg:#f4f5f7; --ok:#1fa84f; --amber:#f5a623;
+    --radius:14px; --shadow:0 1px 2px rgba(10,10,10,.06), 0 8px 24px rgba(10,10,10,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 16px 56px}
+
+  header{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .mark{width:34px;height:34px;border-radius:9px;background:var(--red);flex:none;
+    display:grid;place-items:center;color:#fff;font-weight:700;font-size:18px}
+  h1{font-size:22px;margin:0;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:14px;margin:2px 0 22px 48px}
+
+  /* поток */
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .node{background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:8px 16px;font-size:13px;font-weight:500;white-space:nowrap;
+    transition:all .35s ease}
+  .node.active{border-color:var(--red);color:var(--red);box-shadow:0 0 0 4px rgba(239,49,36,.10);
+    transform:translateY(-1px)}
+  .node.done{border-color:var(--ok);color:var(--ok)}
+  .arrow{color:var(--muted);font-size:14px}
+
+  .grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:18px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;box-shadow:var(--shadow)}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    margin:0 0 12px}
+
+  textarea{width:100%;min-height:150px;resize:vertical;border:1px solid var(--line);
+    border-radius:10px;padding:12px;font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:#fcfcfd;color:var(--ink);transition:border-color .2s,box-shadow .2s}
+  textarea:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(239,49,36,.12)}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 16px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 11px;
+    font-size:12.5px;cursor:pointer;color:var(--ink);transition:all .18s}
+  .chip:hover{border-color:var(--red);color:var(--red);transform:translateY(-1px)}
+
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;align-items:end}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;
+    background:#fff;font-size:14px;color:var(--ink);cursor:pointer}
+  select:focus{outline:none;border-color:var(--red)}
+
+  button.run{width:100%;background:var(--red);color:#fff;border:0;border-radius:10px;
+    padding:13px;font-size:15px;font-weight:600;cursor:pointer;transition:background .18s,transform .1s}
+  button.run:hover{background:var(--red-dark)}
+  button.run:active{transform:scale(.99)}
+  button.run:disabled{opacity:.55;cursor:default}
+
+  .panels{display:grid;gap:12px}
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;box-shadow:var(--shadow);opacity:0;transform:translateY(8px);
+    animation:rise .45s ease forwards}
+  .panel:nth-child(1){animation-delay:.02s}
+  .panel:nth-child(2){animation-delay:.10s}
+  .panel:nth-child(3){animation-delay:.18s}
+  .panel:nth-child(4){animation-delay:.26s}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  .panel .head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+  .panel .title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+  .panel.critical{border-color:rgba(239,49,36,.35);background:linear-gradient(180deg,#fff,#fffafa)}
+  .panel.critical .dot{background:var(--red)}
+  .panel.final .dot{background:var(--ok)}
+  .ms{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  pre{margin:0;white-space:pre-wrap;word-break:break-word;
+    font:13.5px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#16181a}
+  mark{background:rgba(239,49,36,.14);color:var(--red-dark);border-radius:3px;padding:0 2px}
+
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tag{font-size:11.5px;border-radius:6px;padding:3px 8px;background:#f2f3f5;color:#3b3f45;
+    font-variant-numeric:tabular-nums}
+  .tag b{color:var(--red);font-weight:600}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .stat .v{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .stat .v small{font-size:12px;color:var(--muted);font-weight:400}
+
+  .policy{margin-top:11px;font-size:12.5px;line-height:1.45;color:#7a5200;
+    background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.30);
+    border-radius:9px;padding:9px 11px}
+  .policy.ok{color:#14663a;background:rgba(31,168,79,.08);border-color:rgba(31,168,79,.28)}
+  .policy b{font-weight:600}
+
+  .note{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:13px;
+    background:rgba(245,166,35,.10);border:1px solid rgba(245,166,35,.35);color:#7a5200}
+  .err{background:rgba(239,49,36,.08);border-color:rgba(239,49,36,.35);color:var(--red-dark)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:12px}
+  .hint code{background:#f2f3f5;padding:1px 5px;border-radius:4px;font-size:12px}
+  .placeholder{color:var(--muted);font-size:14px;padding:28px 0;text-align:center}
+
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);
+    border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark">α</div>
+    <div>
+      <h1>Модуль безопасности персональных данных</h1>
+    </div>
+  </header>
+  <div class="sub">Прокси между системой-потребителем и LLM: находит ПД, маскирует, восстанавливает ответ.</div>
+
+  <div class="flow" id="flow">
+    <div class="node" data-stage="input">Система-потребитель</div><span class="arrow">→</span>
+    <div class="node" data-stage="detect">Идентификация</div><span class="arrow">→</span>
+    <div class="node" data-stage="mask">Маскирование</div><span class="arrow">→</span>
+    <div class="node" data-stage="llm">LLM</div><span class="arrow">→</span>
+    <div class="node" data-stage="restore">Демаскирование</div><span class="arrow">→</span>
+    <div class="node" data-stage="output">Потребитель</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Ваш текст</h2>
+      <textarea id="text" spellcheck="false">Клиент Иванов Иван Иванович, паспорт 4509 123456, телефон +7 916 123-45-67, почта ivan.petrov@mail.ru. Адрес: г. Москва, ул. Тверская, д. 7, кв. 15. Составь вежливое напоминание о платеже.</textarea>
+      <div class="presets" id="presets"></div>
+
+      <div class="controls">
+        <div>
+          <label for="system">Профиль потребителя (пример)</label>
+          <select id="system"></select>
+        </div>
+        <div>
+          <label for="strategy">Вид маскирования</label>
+          <select id="strategy">
+            <option value="token">Токены {{TYPE_1}}</option>
+            <option value="synthetic">Синтетические данные</option>
+            <option value="star">Звёздочки</option>
+          </select>
+        </div>
+      </div>
+      <div class="controls" style="grid-template-columns:1fr">
+        <div>
+          <label for="llm">Модель</label>
+          <select id="llm">
+            <option value="mock">Встроенный мок (офлайн)</option>
+            <option value="alfagen">AlfaGen · DeepSeek V4 Flash</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="run" id="run">Прогнать через модуль</button>
+      <div class="hint">Контракт проверки: <code>POST /process</code> · метрики: <code>/actuator/prometheus</code></div>
+    </div>
+
+    <div class="panels" id="panels">
+      <div class="placeholder">Вставьте свой текст с персональными данными и нажмите «Прогнать через модуль».</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = [
+  ["Все типы ПД", "Иванов Иван Иванович, дата рождения 12.03.1990, место рождения г. Тула, паспорт серия 45 09 номер 123456 выдан ОУФМС России по г. Москве 15.04.2015, код подразделения 770-123, гражданство РФ, ВУ 99 12 345678, адрес: 125009, г. Москва, ул. Тверская, д. 7, кв. 15, email ivan@mail.ru, телефон +7 916 123-45-67, ИНН 500100732259, карта 4276 3801 2345 6789, cvv 123, пин-код 4321, держатель карты IVAN PETROV, СНИЛС 112-233-445 95. Проверь анкету и составь вежливый ответ клиенту."],
+  ["Ловушки", "Поэт Александр Пушкин родился в Москве. Адрес отделения банка: г. Москва, ул. Каланчевская, д. 27. Договор 770-123 от 12.03.2024 подписан, сумма перевода 123456 рублей. Кратко перескажи текст."],
+  ["Нижний регистр", "клиент иванов иван иванович, паспорт 4509 123456, инн 500100732259"],
+  ["Дата прописью", "Клиент родился двенадцатого марта тысяча девятьсот девяностого года, проживает в г. Казань."],
+  ["Склонения", "Выдать справку Петрову Сергею Алексеевичу, паспорт 45 09 123456. Подтверди готовность справки."],
+  ["Без ПД", "Клиент оплатил покупку в магазине на сумму 1500 рублей. Договор подписан."]
+];
+
+// Понятные подписи для демонстрационных профилей; в конфиге они зовутся по id.
+const SYSTEM_LABELS = {
+  'chat-assistant': 'Условный CRM — скрывает все 17 типов',
+  'bi-reports': 'Условный отдел отчётности — скрывает 5, остальное пропускает'
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+PRESETS.forEach(([name, body]) => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = name;
+  b.onclick = () => { $('text').value = body; };
+  $('presets').appendChild(b);
+});
+
+fetch('demo/options').then(r => r.json()).then(o => {
+  const sel = $('system');
+  (o.systems || []).filter(s => s.id !== 'benchmark').forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = SYSTEM_LABELS[s.id] || (s.id + ' · типов: ' + s.types);
+    sel.appendChild(opt);
+  });
+  const full = [...sel.options].find(o => o.value === 'chat-assistant');
+  if (full) sel.value = full.value;
+  if (!sel.options.length) {
+    const opt = document.createElement('option');
+    opt.value = 'chat-assistant'; opt.textContent = 'chat-assistant';
+    sel.appendChild(opt);
+  }
+  if (!o.alfaGen) {
+    const alfa = $('llm').querySelector('[value=alfagen]');
+    alfa.textContent += ' — ключ не задан';
+    alfa.disabled = true;
+  }
+}).catch(() => {});
+
+function stages(active) {
+  document.querySelectorAll('#flow .node').forEach(n => {
+    n.classList.remove('active');
+    n.classList.toggle('done', active === 'all');
+  });
+  if (active && active !== 'all') {
+    const node = document.querySelector('#flow .node[data-stage="' + active + '"]');
+    if (node) node.classList.add('active');
+  }
+}
+
+function highlight(text, fragments) {
+  let out = esc(text);
+  const values = [...new Set(fragments.map(f => f.split(': ').slice(1).join(': ')))]
+    .filter(Boolean).sort((a, b) => b.length - a.length);
+  values.forEach(v => {
+    const safe = esc(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(safe, 'g'), m => '<mark>' + m + '</mark>');
+  });
+  return out;
+}
+
+// Тайминги приходят в микросекундах: модуль работает быстрее миллисекунды.
+function fmt(us) {
+  if (us === null || us === undefined) return '';
+  if (us < 1000) return us + ' мкс';
+  const ms = us / 1000;
+  return (ms < 10 ? ms.toFixed(1) : Math.round(ms)) + ' мс';
+}
+
+function panel(cls, title, us, bodyHtml, metaHtml) {
+  return '<div class="panel ' + cls + '">' +
+    '<div class="head"><div class="title"><span class="dot"></span>' + title + '</div>' +
+    (us !== null ? '<div class="ms">' + fmt(us) + '</div>' : '') + '</div>' +
+    '<pre>' + bodyHtml + '</pre>' + (metaHtml || '') + '</div>';
+}
+
+async function run() {
+  const btn = $('run');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Обрабатываем';
+  $('panels').innerHTML = '<div class="placeholder">Идёт обработка…</div>';
+
+  const seq = ['input', 'detect', 'mask', 'llm'];
+  seq.forEach((s, i) => setTimeout(() => stages(s), i * 220));
+
+  try {
+    const res = await fetch('demo/run', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        text: $('text').value,
+        system: $('system').value,
+        strategy: $('strategy').value,
+        llm: $('llm').value
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({message: 'Ошибка ' + res.status}));
+      throw new Error(err.message || ('Ошибка ' + res.status));
+    }
+    const d = await res.json();
+    stages('all');
+
+    const tags = Object.entries(d.detected || {})
+      .map(([k, v]) => '<span class="tag">' + k + ' <b>' + v + '</b></span>').join('');
+    const found = (d.spans || []).length;
+
+    let html = '';
+    html += panel('', '1 · Что ввёл потребитель', null, highlight(d.original, d.spans || []),
+      found ? '<div class="meta">' + tags + '</div>' : '<div class="meta"><span class="tag">ПД не найдены</span></div>');
+    const policyNote = (d.notCovered && d.notCovered.length)
+      ? '<div class="policy">Политика системы <b>' + esc(d.system) + '</b>: маскируются ' + d.policyTypes +
+        ' типов из 17. Найдено в тексте, но не входит в перечень: <b>' + d.notCovered.map(esc).join(', ') +
+        '</b> — это настройка политики, а не пропуск детектора.</div>'
+      : '<div class="policy ok">Политика системы <b>' + esc(d.system) + '</b>: маскируются ' + d.policyTypes +
+        ' типов из 17. Всё найденное в тексте скрыто.</div>';
+    html += panel('critical', '2 · Что ушло в LLM — и только это', d.timings.detect + d.timings.mask,
+      esc(d.masked), policyNote);
+    html += panel('', '3 · Ответ модели (данные всё ещё скрыты)', d.timings.llm, esc(d.llmResponse),
+      '<div class="meta"><span class="tag">' +
+      (d.llmMode === 'alfagen' ? 'AlfaGen · DeepSeek V4 Flash' : 'встроенный мок') + '</span>' +
+      '<span class="tag">стратегия: ' + d.strategy + '</span>' +
+      '<span class="tag">система: ' + d.system + '</span></div>');
+    html += panel('final', '4 · Что получил потребитель', d.timings.restore, esc(d.restored));
+
+    html += '<div class="stats">' +
+      '<div class="stat"><div class="v">' + fmt(d.timings.moduleTotal) + '</div><div class="k">Модуль, всего</div></div>' +
+      '<div class="stat"><div class="v">' + fmt(d.timings.detect) + '</div><div class="k">Идентификация</div></div>' +
+      '<div class="stat"><div class="v">' + fmt(d.timings.llm) + '</div><div class="k">Ответ модели</div></div>' +
+      '<div class="stat"><div class="v">' + found + '</div><div class="k">Найдено сущностей</div></div>' +
+      '</div>';
+
+    if (d.note) html += '<div class="note">' + esc(d.note) + '</div>';
+    $('panels').innerHTML = html;
+  } catch (e) {
+    stages(null);
+    $('panels').innerHTML = '<div class="note err">' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Прогнать через модуль';
+  }
+}
+
+$('run').onclick = run;
+$('text').addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run();
+});
+</script>
+</body>
+</html>

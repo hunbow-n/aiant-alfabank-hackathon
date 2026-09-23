@@ -27,6 +27,11 @@ import ru.alfagen.pdsecurity.detect.rules.PersonDetector;
 import ru.alfagen.pdsecurity.detect.rules.PhoneDetector;
 import ru.alfagen.pdsecurity.detect.rules.PinDetector;
 import ru.alfagen.pdsecurity.detect.rules.SnilsDetector;
+import ru.alfagen.pdsecurity.demo.AlfaGenClient;
+import ru.alfagen.pdsecurity.demo.DemoController;
+import ru.alfagen.pdsecurity.demo.DemoService;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import ru.alfagen.pdsecurity.demo.LlmClient;
 import ru.alfagen.pdsecurity.demo.MockLlmClient;
 import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
@@ -147,9 +152,9 @@ public class AppConfig {
     @Bean
     public SystemAuthentication systemAuthentication() {
         java.util.Map<String, String> hashes = new java.util.HashMap<>();
-        String crm = System.getenv("CRM_API_KEY_HASH");
-        if (crm != null && !crm.isBlank()) {
-            hashes.put("crm-bot", crm);
+        String chatAssistant = System.getenv("CHAT_ASSISTANT_KEY_HASH");
+        if (chatAssistant != null && !chatAssistant.isBlank()) {
+            hashes.put("chat-assistant", chatAssistant);
         }
         return new SystemAuthentication(hashes);
     }
@@ -165,5 +170,27 @@ public class AppConfig {
     @Bean
     public LlmClient llmClient() {
         return new MockLlmClient();
+    }
+
+    @Bean
+    public AlfaGenClient alfaGenClient(
+            @Value("${pd.demo.alfagen.base-url:https://alfagen.alfabank.ru/continue-dev/v1}") String baseUrl,
+            @Value("${pd.demo.alfagen.api-key:}") String apiKey,
+            @Value("${pd.demo.alfagen.model:deepseek-ai/DeepSeek-V4-Flash-0731}") String model,
+            @Value("${pd.demo.alfagen.timeout-seconds:20}") long timeoutSeconds) {
+        return new AlfaGenClient(baseUrl, apiKey, model, Duration.ofSeconds(timeoutSeconds));
+    }
+
+    @Bean
+    public DemoService demoService(DetectionEngine engine, SpanResolver resolver,
+                                   ComboEvaluator combo, PolicyRegistry policies,
+                                   @Qualifier("llmClient") LlmClient mock, AlfaGenClient alfaGen) {
+        return new DemoService(new DetectionPipeline(engine, resolver, combo, policies), mock, alfaGen);
+    }
+
+    @Bean
+    public DemoController demoController(DemoService demoService, PolicyRegistry policies,
+                                         AlfaGenClient alfaGen) {
+        return new DemoController(demoService, policies, alfaGen.configured());
     }
 }

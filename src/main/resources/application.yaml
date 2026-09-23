@@ -26,6 +26,12 @@ management:
         enabled: true
 
 pd:
+  demo:
+    alfagen:
+      base-url: ${ALFAGEN_BASE_URL:https://alfagen.alfabank.ru/continue-dev/v1}
+      api-key: ${ALFAGEN_API_KEY:}
+      model: ${ALFAGEN_MODEL:deepseek-ai/DeepSeek-V4-Flash-0731}
+      timeout-seconds: 20
   policy:
     version: 1
     benchmark:
@@ -38,4 +44,26 @@ pd:
       strategy: star
       active_ttl: 15m
       tombstone_ttl: 5m
-    systems: {}
+    systems:
+      # Демо-потребитель: полный набор типов, токенизация, восстановление разрешено.
+      chat-assistant:
+        enabled: true
+        api_key_hash_ref: CHAT_ASSISTANT_KEY_HASH
+        detect_types: [ALL]
+        mask_types: [ALL]
+        demask: true
+        ambiguity_mode: contextual
+        strategy: token
+        combo_rules:
+          - target_types: [PIN, CVV]
+            require_types: [CARD]
+            scope: field_group
+      # Аналитический потребитель: только контакты, маска звёздочками, без восстановления.
+      bi-reports:
+        enabled: true
+        api_key_hash_ref: BI_REPORTS_KEY_HASH
+        detect_types: [PERSON, PHONE, EMAIL, ADDRESS, CARD]
+        mask_types: [PERSON, PHONE, EMAIL, ADDRESS, CARD]
+        demask: false
+        ambiguity_mode: contextual
+        strategy: star

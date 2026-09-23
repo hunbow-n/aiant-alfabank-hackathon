@@ -59,6 +59,13 @@ public final class PolicyRegistry {
         }
     }
 
+    /**
+     * Ids of every configured system, benchmark namespace included.
+     */
+    public Set<String> names() {
+        return Set.copyOf(snapshots.keySet());
+    }
+
     public PolicySnapshot get(String systemId) {
         return snapshots.get(systemId);
     }

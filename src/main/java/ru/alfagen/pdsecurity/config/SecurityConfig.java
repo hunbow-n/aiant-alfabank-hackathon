@@ -10,9 +10,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Security filter chain. Only /process and liveness are public; /api/**, /demo/**
- * and actuator are closed. API is stateless and cookie-free, therefore CSRF is
- * not applicable and its filter simply ignores every request path.
+ * Security filter chain. Public: the contract endpoint /process, liveness probes
+ * and the demo page with its single endpoint. Closed: /api/** and actuator.
+ * The API is stateless and cookie-free, so CSRF does not apply and its filter
+ * ignores every request path.
  */
 @Configuration
 @EnableWebSecurity
@@ -26,7 +27,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/process", "/health", "/ready").permitAll()
-                        .requestMatchers("/api/**", "/demo/**", "/actuator/**").denyAll()
+                        // Demo page and its single endpoint: read-only showcase for reviewers.
+                        .requestMatchers("/", "/index.html", "/demo/**").permitAll()
+                        .requestMatchers("/api/**", "/actuator/**").denyAll()
                         .anyRequest().denyAll())
                 .httpBasic(HttpBasicConfigurer::disable)
                 .formLogin(FormLoginConfigurer::disable);

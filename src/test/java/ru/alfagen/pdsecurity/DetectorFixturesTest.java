@@ -50,8 +50,17 @@ class DetectorFixturesTest {
     }
 
     @Test
-    void emailNegativeTrailingDot() {
-        assertTrue(detect(new EmailDetector(), "пишите на a@b.com.").isEmpty());
+    void emailBeforeSentenceDot() {
+        // Точка в конце предложения не входит в адрес, но и не отменяет его.
+        var found = detect(new EmailDetector(), "пишите на a@b.com. Адрес: г. Москва");
+        assertEquals(1, found.size());
+        assertEquals("a@b.com", "пишите на a@b.com. Адрес: г. Москва".substring(
+                found.get(0).firstRange().startInclusive(), found.get(0).firstRange().endExclusive()));
+    }
+
+    @Test
+    void emailNegativeNotAnAddress() {
+        assertTrue(detect(new EmailDetector(), "просто @упоминание и текст").isEmpty());
     }
 
     @Test

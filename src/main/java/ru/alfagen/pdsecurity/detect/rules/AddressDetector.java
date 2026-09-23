@@ -102,18 +102,21 @@ public final class AddressDetector implements Detector {
     private int scanAddressEnd(SourceText source, int from) {
         String text = source.value();
         int pos = from;
+        int lastComponentEnd = from;
         for (int components = 0; components < MAX_COMPONENTS; components++) {
             Matcher comp = COMPONENT.matcher(text);
             if (!comp.find(pos) || comp.start() != pos) {
-                return pos;
+                break;
             }
+            lastComponentEnd = comp.end();
             int next = afterSeparators(text, comp.end());
             if (next < 0) {
-                return comp.end();
+                break;
             }
             pos = next;
         }
-        return pos;
+        // Возвращаем конец последнего компонента: разделители за ним в адрес не входят.
+        return lastComponentEnd;
     }
 
     /**

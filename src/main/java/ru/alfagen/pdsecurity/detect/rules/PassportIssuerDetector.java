@@ -22,7 +22,7 @@ public final class PassportIssuerDetector implements Detector {
             "(?iu)(кем\\s+выдан|орган\\s+выдачи|выдан)\\s*[:\\s-]*");
 
     private static final Pattern AUTHORITY = Pattern.compile(
-            "(?iu)(мвд|уфмс|овд|тп|гу\\s+мвд|отдел\\s+внутренних\\s+дел|управление\\s+внутренних\\s+дел)");
+            "(?iu)(о?уфмс|мвд|овд|офмс|фмс|тп|гу\\s+мвд|отдел(?:ом)?\\s+внутренних\\s+дел|управление\\s+внутренних\\s+дел)");
 
     private static final Pattern STOP = Pattern.compile(
             "(?iu)(\\d{2}\\.\\d{2}\\.\\d{4}|код\\s+подразделения|дата\\s+выдачи|\\n)");
@@ -46,6 +46,10 @@ public final class PassportIssuerDetector implements Detector {
             int end = source.length();
             if (s.find(a.end())) {
                 end = s.start();
+            }
+            // Пробелы перед следующим полем в название органа не входят.
+            while (end > start && Character.isWhitespace(source.charAt(end - 1))) {
+                end--;
             }
             if (end > start) {
                 out.add(new Candidate("iss-" + m.start(), EntityType.PASSPORT_ISSUER,
