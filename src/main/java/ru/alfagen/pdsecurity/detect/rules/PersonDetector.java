@@ -47,7 +47,7 @@ public final class PersonDetector implements Detector {
         List<SearchToken> tokens = TOKENIZER.tokenize(source.value());
         int i = 0;
         while (i < tokens.size()) {
-            i = scanAt(source, tokens, i, context, out);
+            i = scanAt(source, tokens, i, out);
         }
         return out;
     }
@@ -56,12 +56,11 @@ public final class PersonDetector implements Detector {
      * Tries every name shape at position {@code i} and returns the index to
      * continue from: past a matched name, or the next token when nothing matched.
      */
-    private int scanAt(SourceText source, List<SearchToken> tokens, int i,
-                       DetectionContext context, List<Candidate> out) {
+    private int scanAt(SourceText source, List<SearchToken> tokens, int i, List<Candidate> out) {
         SearchToken t = tokens.get(i);
         String norm = t.normalizedValue();
 
-        Candidate matched = matchName(source, tokens, i, context, norm);
+        Candidate matched = matchName(source, tokens, i, norm);
         if (matched != null) {
             out.add(matched);
             return advancePast(tokens, matched) + 1;
@@ -79,8 +78,7 @@ public final class PersonDetector implements Detector {
      * Name shapes in priority order: field-labelled value, sequence starting
      * from a first name, sequence starting from a surname.
      */
-    private Candidate matchName(SourceText source, List<SearchToken> tokens, int i,
-                                DetectionContext context, String norm) {
+    private Candidate matchName(SourceText source, List<SearchToken> tokens, int i, String norm) {
         if (FIELD_LABELS.contains(norm) && isFieldLabel(source, tokens.get(i))) {
             Candidate c = tryFieldName(tokens, i);
             if (c != null) {

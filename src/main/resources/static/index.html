@@ -109,6 +109,19 @@
   .hint code{background:#f2f3f5;padding:1px 5px;border-radius:4px;font-size:12px}
   .placeholder{color:var(--muted);font-size:14px;padding:28px 0;text-align:center}
 
+  .obs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  @media(max-width:900px){.obs{grid-template-columns:1fr}}
+  /* min-width:0 не даёт длинной строке журнала растянуть колонку сетки */
+  .obs > .card{min-width:0}
+  .obs .stats{margin-top:0}
+  .log{font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:#3b3f45;
+    max-height:230px;overflow-y:auto;overflow-x:hidden;background:#fbfbfc;
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .log div{white-space:pre-wrap;word-break:break-word;padding:3px 0}
+  .log div + div{border-top:1px solid var(--line)}
+  .log b{color:var(--red);font-weight:600}
+  .log .empty{color:var(--muted);white-space:normal}
+
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);
     border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -171,6 +184,20 @@
       <div class="placeholder">Вставьте свой текст с персональными данными и нажмите «Прогнать через модуль».</div>
     </div>
   </div>
+  <section class="obs" id="obs" hidden>
+    <div class="card">
+      <h2>Метрики сервиса</h2>
+      <div class="stats" id="obsStats"></div>
+      <div class="meta" id="obsTypes"></div>
+      <div class="hint">Те же значения публикуются в <code>/actuator/prometheus</code>.</div>
+    </div>
+    <div class="card">
+      <h2>Журнал обработки — без значений ПД</h2>
+      <div id="obsLog" class="log"></div>
+      <div class="hint">Строки журнала: хэш идентификатора, длина текста, найденные типы и время.
+        Ни одного значения персональных данных в журнал не попадает.</div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -325,6 +352,7 @@ async function run() {
 
     if (d.note) html += '<div class="note">' + esc(d.note) + '</div>';
     $('panels').innerHTML = html;
+    loadObservability();
   } catch (e) {
     clearStageTimers();
     stages(null);
@@ -334,6 +362,37 @@ async function run() {
     btn.textContent = 'Прогнать через модуль';
   }
 }
+
+async function loadObservability() {
+  try {
+    const [m, e] = await Promise.all([
+      fetch('demo/metrics').then(r => r.json()),
+      fetch('demo/events').then(r => r.json())
+    ]);
+    const p = m.latencyPercentilesMicros || {};
+    $('obsStats').innerHTML =
+      '<div class="stat"><div class="v">' + (m.requests || 0) + '</div><div class="k">Запросов обработано</div></div>' +
+      '<div class="stat"><div class="v">' + fmt(m.latencyMeanMicros) + '</div><div class="k">Latency, среднее</div></div>' +
+      '<div class="stat"><div class="v">' + fmt(p.p95) + '</div><div class="k">Latency p95</div></div>' +
+      '<div class="stat"><div class="v">' + fmt(p.p99) + '</div><div class="k">Latency p99</div></div>';
+    const types = Object.entries(m.detectedByType || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => '<span class="tag">' + esc(k) + ' <b>' + Math.round(v) + '</b></span>').join('');
+    $('obsTypes').innerHTML = types +
+      '<span class="tag">токенов ' + (m.inputTokens || 0) + '</span>';
+    $('obsLog').innerHTML = (e && e.length)
+      ? e.map(x => '<div>' + esc(x.at.replace('T', ' ').slice(0, 19)) +
+          ' op=' + esc(x.operation) + ' idHash=' + esc(x.payloadIdHash) +
+          ' len=' + x.length + ' types=' + esc(JSON.stringify(x.types)) +
+          ' ' + fmt(x.latencyMicros) + '</div>').join('')
+      : '<div class="empty">Пока пусто: прогоните текст через модуль.</div>';
+    $('obs').hidden = false;
+  } catch (err) {
+    $('obs').hidden = true;
+  }
+}
+
+loadObservability();
 
 $('run').onclick = run;
 $('text').addEventListener('keydown', e => {

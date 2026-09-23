@@ -35,6 +35,7 @@ import org.springframework.beans.factory.annotation.Value;
 import ru.alfagen.pdsecurity.demo.LlmClient;
 import ru.alfagen.pdsecurity.demo.MockLlmClient;
 import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
 import ru.alfagen.pdsecurity.observability.TokenCounter;
 import ru.alfagen.pdsecurity.policy.ComboEvaluator;
 import ru.alfagen.pdsecurity.policy.PolicyProperties;
@@ -144,9 +145,10 @@ public class AppConfig {
     @Bean
     public ProcessService processService(SessionStore store, SessionCipher cipher, Fingerprint fingerprint,
                                          DetectionEngine engine, SpanResolver resolver, ComboEvaluator combo,
-                                         PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter counter) {
+                                         PolicyRegistry policies, ProcessingMetrics metrics, TokenCounter counter,
+                                         RecentEvents recentEvents) {
         return new ProcessService(new SessionSupport(store, cipher, fingerprint),
-                new DetectionPipeline(engine, resolver, combo, policies), metrics, counter);
+                new DetectionPipeline(engine, resolver, combo, policies), metrics, counter, recentEvents);
     }
 
     @Bean
@@ -173,6 +175,11 @@ public class AppConfig {
     }
 
     @Bean
+    public RecentEvents recentEvents() {
+        return new RecentEvents();
+    }
+
+    @Bean
     public AlfaGenClient alfaGenClient(
             @Value("${pd.demo.alfagen.base-url:https://alfagen.alfabank.ru/continue-dev/v1}") String baseUrl,
             @Value("${pd.demo.alfagen.api-key:}") String apiKey,
@@ -184,13 +191,16 @@ public class AppConfig {
     @Bean
     public DemoService demoService(DetectionEngine engine, SpanResolver resolver,
                                    ComboEvaluator combo, PolicyRegistry policies,
-                                   @Qualifier("llmClient") LlmClient mock, AlfaGenClient alfaGen) {
-        return new DemoService(new DetectionPipeline(engine, resolver, combo, policies), mock, alfaGen);
+                                   @Qualifier("llmClient") LlmClient mock, AlfaGenClient alfaGen,
+                                   ProcessingMetrics metrics, RecentEvents recentEvents) {
+        return new DemoService(new DetectionPipeline(engine, resolver, combo, policies), mock, alfaGen,
+                metrics, recentEvents);
     }
 
     @Bean
     public DemoController demoController(DemoService demoService, PolicyRegistry policies,
+                                         ProcessingMetrics metrics, RecentEvents recentEvents,
                                          AlfaGenClient alfaGen) {
-        return new DemoController(demoService, policies, alfaGen.configured());
+        return new DemoController(demoService, policies, metrics, recentEvents, alfaGen.configured());
     }
 }

@@ -10,6 +10,7 @@ import ru.alfagen.pdsecurity.mask.MaskStrategy;
 import ru.alfagen.pdsecurity.mask.StarMask;
 import ru.alfagen.pdsecurity.mask.TokenMask;
 import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
 import ru.alfagen.pdsecurity.observability.SafeLog;
 import ru.alfagen.pdsecurity.observability.TokenCounter;
 import ru.alfagen.pdsecurity.policy.ComboEvaluator;
@@ -51,11 +52,14 @@ public final class ProcessService {
     private final ComboEvaluator comboEvaluator;
     private final PolicyRegistry policies;
     private final ProcessingMetrics metrics;
+    private final RecentEvents recentEvents;
     private final TokenCounter tokenCounter;
     private final ExecutorService tokenExecutor;
 
     public ProcessService(SessionSupport session, DetectionPipeline pipeline,
-                          ProcessingMetrics metrics, TokenCounter tokenCounter) {
+                          ProcessingMetrics metrics, TokenCounter tokenCounter,
+                          RecentEvents recentEvents) {
+        this.recentEvents = recentEvents;
         this.store = session.store();
         this.cipher = session.cipher();
         this.fingerprint = session.fingerprint();
@@ -105,11 +109,14 @@ public final class ProcessService {
             MaskStrategy strategy = strategyFor(policy.strategy());
             String masked = new Masker(strategy).render(payload, resolved);
 
+            Map<String, Integer> types = typeCounts(candidates);
+            String idHash = SafeLog.hash(payloadId);
+            long micros = (System.nanoTime() - start) / 1_000;
             if (log.isInfoEnabled()) {
                 log.info("op=MASK payloadIdHash={} len={} types={} latencyMs={}",
-                        SafeLog.hash(payloadId), payload.length(), typeCounts(candidates),
-                        (System.nanoTime() - start) / 1_000_000);
+                        idHash, payload.length(), types, micros / 1_000);
             }
+            recentEvents.add("MASK", idHash, payload.length(), types, micros);
 
             StoredSession entry = new StoredSession(
                     policy.version(),

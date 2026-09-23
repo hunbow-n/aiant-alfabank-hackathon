@@ -4,6 +4,9 @@ import ru.alfagen.pdsecurity.detect.Candidate;
 import ru.alfagen.pdsecurity.detect.DetectionContext;
 import ru.alfagen.pdsecurity.detect.EntityType;
 import ru.alfagen.pdsecurity.mask.MaskStrategy;
+import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
+import ru.alfagen.pdsecurity.observability.SafeLog;
 import ru.alfagen.pdsecurity.mask.Masker;
 import ru.alfagen.pdsecurity.mask.StarMask;
 import ru.alfagen.pdsecurity.mask.SyntheticMask;
@@ -18,6 +21,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.Set;
 
 /**
@@ -45,11 +49,16 @@ public final class DemoService {
             Не переспрашивай и не проси уточнений.""";
 
     private final DetectionPipeline pipeline;
+    private final ProcessingMetrics metrics;
+    private final RecentEvents recentEvents;
     private final LlmClient mock;
     private final LlmClient alfaGen;
 
-    public DemoService(DetectionPipeline pipeline, LlmClient mock, LlmClient alfaGen) {
+    public DemoService(DetectionPipeline pipeline, LlmClient mock, LlmClient alfaGen,
+                       ProcessingMetrics metrics, RecentEvents recentEvents) {
         this.pipeline = pipeline;
+        this.metrics = metrics;
+        this.recentEvents = recentEvents;
         this.mock = mock;
         this.alfaGen = alfaGen;
     }
@@ -102,6 +111,14 @@ public final class DemoService {
         timings.put("llm", micros(llmNanos));
         timings.put("restore", micros(restoreNanos));
         timings.put("moduleTotal", micros(detectNanos + maskNanos + restoreNanos));
+
+        // Прогон с демо-страницы попадает в те же метрики и журнал, что и /process:
+        // проверяющий видит на экране результат собственного запроса.
+        long moduleNanos = detectNanos + maskNanos + restoreNanos;
+        metrics.recordLatency(moduleNanos);
+        metrics.event(system, "demo", "masked");
+        recentEvents.add("DEMO", SafeLog.hash(UUID.randomUUID().toString()),
+                request.text().length(), typeCounts(resolved), moduleNanos / 1_000);
 
         return new DemoRunResponse(request.text(), masked, answer, restored,
                 typeCounts(resolved), fragments(request.text(), resolved), timings,

@@ -14,6 +14,7 @@ import ru.alfagen.pdsecurity.policy.PolicyProperties;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
 import ru.alfagen.pdsecurity.service.DetectionPipeline;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
 import ru.alfagen.pdsecurity.service.ProcessService;
 import ru.alfagen.pdsecurity.service.SessionSupport;
 import ru.alfagen.pdsecurity.session.Fingerprint;
@@ -49,7 +50,7 @@ class ConcurrentSessionTest {
         PolicyRegistry policies = new PolicyRegistry(new PolicyProperties());
         ProcessService service = new ProcessService(new SessionSupport(store, cipher, fp),
                 new DetectionPipeline(engine, new GreedySpanResolver(), new ComboEvaluator(), policies),
-                metrics, new TokenCounter());
+                metrics, new TokenCounter(), new RecentEvents());
 
         String original = "Клиент Иванов Иван, email ivan@example.com";
         int threads = 200;

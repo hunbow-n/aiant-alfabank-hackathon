@@ -5,6 +5,11 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import ru.alfagen.pdsecurity.detect.EntityType;
 
+import io.micrometer.core.instrument.distribution.HistogramSnapshot;
+import io.micrometer.core.instrument.distribution.ValueAtPercentile;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -44,9 +49,49 @@ public final class ProcessingMetrics {
     }
 
     public void recordLatency(long nanos) {
-        Timer.builder("pd.http.latency")
-                .register(registry)
-                .record(nanos, TimeUnit.NANOSECONDS);
+        latencyTimer().record(nanos, TimeUnit.NANOSECONDS);
+    }
+
+    private Timer latencyTimer() {
+        return Timer.builder("pd.http.latency")
+                .publishPercentiles(0.5, 0.95, 0.99)
+                .register(registry);
+    }
+
+    /**
+     * Снимок для демонстрационной страницы: агрегаты, которые уже собираются
+     * для Prometheus. Значений персональных данных здесь нет по построению —
+     * только счётчики и перцентили.
+     */
+    public Map<String, Object> snapshot() {
+        Timer latency = latencyTimer();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("requests", latency.count());
+        out.put("latencyMeanMicros", Math.round(latency.mean(TimeUnit.MICROSECONDS)));
+        out.put("latencyMaxMicros", Math.round(latency.max(TimeUnit.MICROSECONDS)));
+        HistogramSnapshot histogram = latency.takeSnapshot();
+        Map<String, Long> percentiles = new LinkedHashMap<>();
+        for (ValueAtPercentile v : histogram.percentileValues()) {
+            percentiles.put("p" + Math.round(v.percentile() * 100),
+                    Math.round(v.value(TimeUnit.MICROSECONDS)));
+        }
+        out.put("latencyPercentilesMicros", percentiles);
+
+        Map<String, Long> detected = new LinkedHashMap<>();
+        registry.find("pd.detected").counters().stream()
+                .filter(c -> c.count() > 0)
+                .forEach(c -> detected.merge(c.getId().getTag("type"), (long) c.count(), Long::sum));
+        out.put("detectedByType", detected);
+
+        Map<String, Long> events = new LinkedHashMap<>();
+        registry.find("pd.event").counters().stream()
+                .filter(c -> c.count() > 0)
+                .forEach(c -> events.merge(c.getId().getTag("status"), (long) c.count(), Long::sum));
+        out.put("eventsByStatus", events);
+
+        Counter tokens = registry.find("pd.input_tokens_total").counter();
+        out.put("inputTokens", tokens == null ? 0L : (long) tokens.count());
+        return out;
     }
 
     public void recordTokens(long count) {

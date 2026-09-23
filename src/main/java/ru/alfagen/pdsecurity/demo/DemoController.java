@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.alfagen.pdsecurity.api.ApiError;
+import ru.alfagen.pdsecurity.observability.ProcessingMetrics;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 
 import java.util.List;
@@ -26,12 +28,35 @@ public class DemoController {
 
     private final DemoService service;
     private final PolicyRegistry policies;
+    private final ProcessingMetrics metrics;
+    private final RecentEvents recentEvents;
     private final boolean alfaGenConfigured;
 
-    public DemoController(DemoService service, PolicyRegistry policies, boolean alfaGenConfigured) {
+    public DemoController(DemoService service, PolicyRegistry policies, ProcessingMetrics metrics,
+                          RecentEvents recentEvents, boolean alfaGenConfigured) {
         this.service = service;
         this.policies = policies;
+        this.metrics = metrics;
+        this.recentEvents = recentEvents;
         this.alfaGenConfigured = alfaGenConfigured;
+    }
+
+    /**
+     * Агрегаты, которые сервис и так публикует в Prometheus: latency, счётчики
+     * запросов и найденных типов. Значений персональных данных здесь нет.
+     */
+    @GetMapping("/metrics")
+    public Map<String, Object> metrics() {
+        return metrics.snapshot();
+    }
+
+    /**
+     * Последние строки журнала обработки — те же, что уходят в лог. Видно типы
+     * и количества, но ни одного значения: проверяющий может убедиться сам.
+     */
+    @GetMapping("/events")
+    public List<RecentEvents.Entry> events() {
+        return recentEvents.recent();
     }
 
     @PostMapping("/run")

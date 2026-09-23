@@ -27,6 +27,7 @@ import ru.alfagen.pdsecurity.policy.PolicyProperties;
 import ru.alfagen.pdsecurity.policy.PolicyRegistry;
 import ru.alfagen.pdsecurity.resolve.GreedySpanResolver;
 import ru.alfagen.pdsecurity.service.DetectionPipeline;
+import ru.alfagen.pdsecurity.observability.RecentEvents;
 import ru.alfagen.pdsecurity.service.ProcessService;
 import ru.alfagen.pdsecurity.service.SessionSupport;
 import ru.alfagen.pdsecurity.session.Fingerprint;
@@ -63,7 +64,7 @@ class ProcessRoundTripTest {
         PolicyProperties props = new PolicyProperties();
         PolicyRegistry policies = new PolicyRegistry(props);
         return new ProcessService(new SessionSupport(store, cipher, fp),
-                new DetectionPipeline(engine, new GreedySpanResolver(), new ComboEvaluator(), policies), metrics, new ru.alfagen.pdsecurity.observability.TokenCounter());
+                new DetectionPipeline(engine, new GreedySpanResolver(), new ComboEvaluator(), policies), metrics, new ru.alfagen.pdsecurity.observability.TokenCounter(), new RecentEvents());
     }
 
     @Test
