@@ -12,3 +12,5 @@ out/
 bin/
 build/
 .gradle/
+.env
+compose.override.yaml
