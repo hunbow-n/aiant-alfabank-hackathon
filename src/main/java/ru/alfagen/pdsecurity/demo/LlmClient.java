@@ -6,5 +6,11 @@ package ru.alfagen.pdsecurity.demo;
  */
 public interface LlmClient {
 
-    String complete(String prompt);
+    /**
+     * @param prompt       masked text to send to the model
+     * @param instructions system instructions; they differ per mask strategy,
+     *                     because a model must copy placeholders verbatim but
+     *                     must never invent them for synthetic or star masks
+     */
+    String complete(String prompt, String instructions);
 }

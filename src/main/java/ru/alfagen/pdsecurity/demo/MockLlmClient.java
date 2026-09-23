@@ -16,7 +16,7 @@ public final class MockLlmClient implements LlmClient {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{[A-Z_]+_\\d+}}");
 
     @Override
-    public String complete(String prompt) {
+    public String complete(String prompt, String instructions) {
         Set<String> placeholders = new LinkedHashSet<>();
         Matcher m = PLACEHOLDER.matcher(prompt);
         while (m.find()) {

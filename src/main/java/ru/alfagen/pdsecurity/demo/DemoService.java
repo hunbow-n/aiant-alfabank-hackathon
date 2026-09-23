@@ -29,6 +29,20 @@ public final class DemoService {
 
     private static final String DEFAULT_SYSTEM = "chat-assistant";
 
+    private static final String TOKEN_INSTRUCTIONS = """
+            Ты помощник банковского оператора. В тексте встречаются плейсхолдеры
+            в двойных фигурных скобках — это скрытые персональные данные.
+            Копируй их в ответ дословно, не расшифровывай и не изменяй.
+            Отвечай содержательным текстом для клиента на русском языке.
+            Не переспрашивай и не проси уточнений.""";
+
+    private static final String PLAIN_INSTRUCTIONS = """
+            Ты помощник банковского оператора. Данные в тексте уже обезличены,
+            работай с ними как с обычными значениями. Никогда не придумывай
+            плейсхолдеры и не вставляй фигурные скобки в ответ.
+            Отвечай содержательным текстом для клиента на русском языке.
+            Не переспрашивай и не проси уточнений.""";
+
     private final DetectionPipeline pipeline;
     private final LlmClient mock;
     private final LlmClient alfaGen;
@@ -66,9 +80,10 @@ public final class DemoService {
         String llmMode = "alfagen".equals(request.llmMode()) ? "alfagen" : "mock";
         String answer;
         try {
-            answer = ("alfagen".equals(llmMode) ? alfaGen : mock).complete(masked);
+            String instructions = "token".equals(strategyName) ? TOKEN_INSTRUCTIONS : PLAIN_INSTRUCTIONS;
+            answer = ("alfagen".equals(llmMode) ? alfaGen : mock).complete(masked, instructions);
         } catch (RuntimeException e) {
-            answer = mock.complete(masked);
+            answer = mock.complete(masked, PLAIN_INSTRUCTIONS);
             llmMode = "mock";
             note = "Модель недоступна, ответ получен от встроенного мока.";
         }

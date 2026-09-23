@@ -30,15 +30,6 @@ public final class AlfaGenClient implements LlmClient {
 
     private static final String CA_BUNDLE = "/certs/russian-trusted-ca.pem";
 
-    private static final String SYSTEM_PROMPT = """
-            Ты помощник банковского оператора. В тексте встречаются плейсхолдеры
-            вида {{TYPE_1}} — это скрытые персональные данные. Копируй их в ответ
-            дословно, не расшифровывай, не изменяй и не спрашивай, что они значат.
-            Всегда отвечай содержательным текстом для клиента на русском языке и
-            упоминай в нём подходящие плейсхолдеры. Если явной задачи нет,
-            составь короткое вежливое подтверждение о приёме данных в работу.
-            Не переспрашивай и не проси уточнений.""";
-
     private final HttpClient http;
     private final ObjectMapper mapper = new ObjectMapper();
     private final String baseUrl;
@@ -116,7 +107,7 @@ public final class AlfaGenClient implements LlmClient {
     }
 
     @Override
-    public String complete(String prompt) {
+    public String complete(String prompt, String instructions) {
         if (!configured()) {
             throw new IllegalStateException("AlfaGen API key is not configured");
         }
@@ -127,7 +118,7 @@ public final class AlfaGenClient implements LlmClient {
                     // Шлюз принимает только потоковый режим: обычный ответ отклоняется с 400.
                     "stream", true,
                     "messages", java.util.List.of(
-                            Map.of("role", "system", "content", SYSTEM_PROMPT),
+                            Map.of("role", "system", "content", instructions),
                             Map.of("role", "user", "content", prompt))));
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/chat/completions"))
                     .header("Content-Type", "application/json")
